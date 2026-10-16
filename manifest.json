@@ -3,13 +3,23 @@
   "name": "MeowPN",
   "version": "1.0",
   "description": "Honest in-browser ad blocker with per-site whitelist",
+  "icons": {
+    "16": "meowpn-logo.png",
+    "32": "meowpn-logo.png",
+    "48": "meowpn-logo.png",
+    "128": "meowpn-logo.png"
+  },
   "permissions": [
     "storage",
     "activeTab",
     "declarativeNetRequest"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "meowpn-toolbar.png",
+      "32": "meowpn-toolbar.png"
+    }
   },
   "background": {
     "service_worker": "background.js",
@@ -28,11 +38,6 @@
         "id": "meowpn_blocklist",
         "enabled": true,
         "path": "rules.json"
-      },
-      {
-        "id": "meowpn_essential_media",
-        "enabled": true,
-        "path": "essential-media-rules.json"
       }
     ]
   }

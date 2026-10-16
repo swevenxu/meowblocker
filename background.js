@@ -1,22 +1,27 @@
-const STATIC_RULESET_ID = "meowpn_blocklist";
-const ALLOW_PRIORITY = 100;
-const ALLOW_MAIN_FRAME_PRIORITY = 101;
-const RESOURCE_TYPES = [
-  "sub_frame", "script", "image", "stylesheet",
-  "xmlhttprequest", "media", "websocket", "ping", "font", "object", "other",
-];
-const HOSTNAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
+import {
+  buildWhitelistRules,
+  getRulesetUpdate,
+  isOwnedRule,
+  sanitizeWhitelist,
+} from "./background-logic.js";
 
 async function getState() {
-  const stored = await chrome.storage.local.get(["enabled", "whitelist"]);
-  const enabled = stored.enabled !== false;
-  const whitelist = Array.isArray(stored.whitelist)
-    ? stored.whitelist.filter((host) => typeof host === "string" && HOSTNAME_PATTERN.test(host))
-    : [];
-  return { enabled, whitelist };
+  const stored = await chrome.storage.local.get(["enabled", "whitelist", "ownedDynamicRuleIds"]);
+  return {
+    enabled: stored.enabled !== false,
+    whitelist: sanitizeWhitelist(stored.whitelist),
+    ownedDynamicRuleIds: Array.isArray(stored.ownedDynamicRuleIds)
+      ? stored.ownedDynamicRuleIds.filter((id) => Number.isInteger(id))
+      : [],
+  };
 }
 
 let syncQueue = Promise.resolve();
+
+function safeErrorMessage(err) {
+  const message = err instanceof Error ? err.message : "Unable to synchronize blocking rules";
+  return message.replace(/https?:\/\/\S+/gi, "[url]").slice(0, 200);
+}
 
 function queueSync() {
   syncQueue = syncQueue.then(syncRules, syncRules);
@@ -24,38 +29,44 @@ function queueSync() {
 }
 
 async function syncRules() {
-  const { enabled, whitelist } = await getState();
   try {
-    await chrome.declarativeNetRequest.updateEnabledRulesets({
-      [enabled ? "enableRulesetIds" : "disableRulesetIds"]: [STATIC_RULESET_ID],
-    });
+    const { enabled, whitelist, ownedDynamicRuleIds } = await getState();
+    await chrome.declarativeNetRequest.updateEnabledRulesets(getRulesetUpdate(enabled));
 
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
-    const removeRuleIds = existing.map((rule) => rule.id);
+    const ownedRules = existing.filter((rule) => isOwnedRule(rule, ownedDynamicRuleIds));
+    const addRules = enabled ? buildWhitelistRules(whitelist) : [];
 
-    const addRules = enabled
-      ? whitelist.flatMap((host, index) => [
-          {
-            id: index * 2 + 1,
-            priority: ALLOW_PRIORITY,
-            action: { type: "allow" },
-            condition: { initiatorDomains: [host], resourceTypes: RESOURCE_TYPES },
-          },
-          {
-            id: index * 2 + 2,
-            priority: ALLOW_MAIN_FRAME_PRIORITY,
-            action: { type: "allow" },
-            condition: { requestDomains: [host], resourceTypes: ["main_frame"] },
-          },
-        ])
-      : [];
-
-    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
-    await chrome.storage.local.set({ status: { ok: true, updatedAt: Date.now() } });
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: ownedRules.map((rule) => rule.id),
+      addRules,
+    });
+    const status = { ok: true, updatedAt: Date.now() };
+    await chrome.storage.local.set({
+      ownedDynamicRuleIds: addRules.map((rule) => rule.id),
+      status,
+    });
+    return status;
   } catch (err) {
-    await chrome.storage.local.set({ status: { ok: false, error: String(err && err.message ? err.message : err), updatedAt: Date.now() } });
+    const status = {
+      ok: false,
+      error: safeErrorMessage(err),
+      updatedAt: Date.now(),
+    };
+    await chrome.storage.local.set({ status });
+    return status;
   }
 }
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type !== "syncRules") return false;
+  queueSync().then(sendResponse, () => sendResponse({
+    ok: false,
+    error: "Unable to synchronize blocking rules",
+    updatedAt: Date.now(),
+  }));
+  return true;
+});
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && (changes.enabled || changes.whitelist)) {

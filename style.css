@@ -97,6 +97,10 @@ body[data-state="connecting"] .dot {
   background: var(--accent);
 }
 
+body[data-state="error"] .dot {
+  background: var(--danger);
+}
+
 .status {
   display: flex;
   align-items: center;
