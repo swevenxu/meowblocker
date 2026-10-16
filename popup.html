@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MeowPN</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=panchang@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-state="off">
+  <main class="app">
+    <header class="top">
+      <span class="brand">meowPN</span>
+    </header>
+
+    <section class="stage">
+      <button id="toggle" class="power" aria-label="Toggle MeowPN">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 3v8"/>
+          <path d="M18.36 7.05a9 9 0 1 1-12.72 0"/>
+        </svg>
+      </button>
+      <div class="status">
+        <span id="dot" class="dot"></span>
+        <span id="statusText">Paused</span>
+      </div>
+      <div id="detail" class="detail">Blocking is turned off</div>
+      <button id="whitelist" class="whitelist" type="button">Whitelist this site</button>
+    </section>
+
+    <footer class="foot">
+      <a id="settingsLink" href="#">DNS-level blocking? Set it up in Chrome settings &rarr;</a>
+    </footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

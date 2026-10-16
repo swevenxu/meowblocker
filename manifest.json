@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "MeowPN",
+  "version": "1.0",
+  "description": "Honest in-browser ad blocker with per-site whitelist",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://doh.tiar.app/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "meowpn_blocklist",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}
