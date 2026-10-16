@@ -4,7 +4,6 @@
 (function () {
   const selectors = [
     ".ads_all > .ads_w",
-    ".ez-video-wrap",
     "body > #js-adContainer.adBlock",
     "#mobile-adhesion:not(#style_important)",
     "#ad-300x250_mid_mobile",

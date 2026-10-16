@@ -28,6 +28,11 @@
         "id": "meowpn_blocklist",
         "enabled": true,
         "path": "rules.json"
+      },
+      {
+        "id": "meowpn_essential_media",
+        "enabled": true,
+        "path": "essential-media-rules.json"
       }
     ]
   }

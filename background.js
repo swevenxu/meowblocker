@@ -1,7 +1,8 @@
 const STATIC_RULESET_ID = "meowpn_blocklist";
-const ALLOW_PRIORITY = 2;
+const ALLOW_PRIORITY = 100;
+const ALLOW_MAIN_FRAME_PRIORITY = 101;
 const RESOURCE_TYPES = [
-  "main_frame", "sub_frame", "script", "image", "stylesheet",
+  "sub_frame", "script", "image", "stylesheet",
   "xmlhttprequest", "media", "websocket", "ping", "font", "object", "other",
 ];
 const HOSTNAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
@@ -33,12 +34,20 @@ async function syncRules() {
     const removeRuleIds = existing.map((rule) => rule.id);
 
     const addRules = enabled
-      ? whitelist.map((host, index) => ({
-          id: index + 1,
-          priority: ALLOW_PRIORITY,
-          action: { type: "allow" },
-          condition: { initiatorDomains: [host], resourceTypes: RESOURCE_TYPES },
-        }))
+      ? whitelist.flatMap((host, index) => [
+          {
+            id: index * 2 + 1,
+            priority: ALLOW_PRIORITY,
+            action: { type: "allow" },
+            condition: { initiatorDomains: [host], resourceTypes: RESOURCE_TYPES },
+          },
+          {
+            id: index * 2 + 2,
+            priority: ALLOW_MAIN_FRAME_PRIORITY,
+            action: { type: "allow" },
+            condition: { requestDomains: [host], resourceTypes: ["main_frame"] },
+          },
+        ])
       : [];
 
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });

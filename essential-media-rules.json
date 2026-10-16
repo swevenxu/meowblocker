@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "priority": 1000,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "resourceTypes": [
+        "font",
+        "media",
+        "stylesheet"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1000,
+    "action": {
+      "type": "allowAllRequests"
+    },
+    "condition": {
+      "resourceTypes": [
+        "sub_frame"
+      ]
+    }
+  }
+]
