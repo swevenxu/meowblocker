@@ -8,9 +8,6 @@
     "activeTab",
     "declarativeNetRequest"
   ],
-  "host_permissions": [
-    "https://doh.tiar.app/*"
-  ],
   "action": {
     "default_popup": "popup.html"
   },
@@ -18,6 +15,13 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
   "declarative_net_request": {
     "rule_resources": [
       {

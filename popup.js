@@ -57,7 +57,7 @@ els.settingsLink.addEventListener("click", (event) => {
 
 (async () => {
   const stored = await chrome.storage.local.get(["enabled", "whitelist"]);
-  enabled = Boolean(stored.enabled);
+  enabled = stored.enabled !== false;
   whitelist = Array.isArray(stored.whitelist) ? stored.whitelist : [];
   hostname = await readHostname();
   renderStatus();
