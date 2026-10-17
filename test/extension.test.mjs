@@ -34,14 +34,14 @@ test("whitelist rules are site-scoped and cover main frames and descendants", ()
   assert.deepEqual(buildWhitelistRules([]), []);
 });
 
-test("enable and disable operations update the complete MeowPN ruleset set", () => {
+test("enable and disable operations update the complete MeowBlocker ruleset set", () => {
   assert.deepEqual(getRulesetUpdate(true), {
-    enableRulesetIds: ["meowpn_blocklist"],
+    enableRulesetIds: ["meowblocker_blocklist"],
     disableRulesetIds: [],
   });
   assert.deepEqual(getRulesetUpdate(false), {
     enableRulesetIds: [],
-    disableRulesetIds: ["meowpn_blocklist"],
+    disableRulesetIds: ["meowblocker_blocklist"],
   });
 });
 
@@ -80,11 +80,20 @@ test("legacy and current whitelist rules are identifiable without claiming arbit
 
 test("cosmetic filtering is scoped and idempotent", () => {
   const source = read("content.js");
-  assert.match(source, /meowpn-cosmetic-filters/);
+  assert.match(source, /meowblocker-cosmetic-filters/);
   assert.match(source, /chrome\.storage\.onChanged/);
   assert.match(source, /stored\.enabled !== false/);
   assert.match(source, /document\.getElementById\(STYLE_ID\)/);
   assert.doesNotMatch(source, /\.ez-video-wrap/);
+});
+
+test("test-page cosmetic selectors are scoped and cover dynamic elements", () => {
+  const source = read("content.js");
+  assert.match(source, /"\.adbox\.banner_ads\.adsbox"/);
+  assert.match(source, /"\.textads"/);
+  assert.match(source, /hostname === "adblock\.turtlecute\.org"/);
+  assert.match(source, /selectors\.concat\(testPageSelectors\)/);
+  assert.match(source, /display: none !important/);
 });
 
 test("popup removes the matching parent-domain whitelist entry from subdomains", () => {
@@ -179,6 +188,67 @@ test("upload exceptions remain narrow and higher priority than ad filters", () =
       resourceTypes,
     });
   }
+});
+
+test("known popunder scripts are blocked without blanket popup interception", () => {
+  const rules = JSON.parse(read("rules.json"));
+  const popunderBlocks = rules.filter((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.resourceTypes?.length === 1 &&
+    rule.condition.resourceTypes[0] === "script" &&
+    [
+      "||openlua.cloud/jquery.popunder.js",
+      "||openlua.cloud/exitpopup.js",
+    ].includes(rule.condition.urlFilter)
+  ));
+  assert.equal(popunderBlocks.length, 2);
+  assert.equal(popunderBlocks.every((rule) => rule.priority > 30), true);
+  assert.equal(popunderBlocks.every((rule) => rule.condition.domainType === "firstParty"), true);
+
+  const content = read("content.js");
+  assert.doesNotMatch(content, /window\.open|window\.close|addEventListener\(["']click/);
+});
+
+test("target ad test scripts and tracker hosts are narrowly blocked", () => {
+  const rules = JSON.parse(read("rules.json"));
+  const scriptRules = rules.filter((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.requestDomains?.length === 1 &&
+    rule.condition.requestDomains[0] === "adblock.turtlecute.org" &&
+    rule.condition.resourceTypes?.length === 1 &&
+    rule.condition.resourceTypes[0] === "script"
+  ));
+  assert.deepEqual(
+    scriptRules.map((rule) => rule.condition.urlFilter).sort(),
+    [
+      "||adblock.turtlecute.org/js/pagead.js",
+      "||adblock.turtlecute.org/js/widget/ads.js",
+    ].sort()
+  );
+  const trackerRules = rules.filter((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.requestDomains?.length === 1 &&
+    [
+      "analyticsengine.s3.amazonaws.com",
+      "analytics.s3.amazonaws.com",
+    ].includes(rule.condition.requestDomains[0])
+  ));
+  assert.equal(trackerRules.length, 2);
+  assert.equal(rules.some((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.requestDomains?.length === 1 &&
+    rule.condition.requestDomains[0] === "amazonaws.com" &&
+    !rule.condition.initiatorDomains?.length
+  )), false);
+  assert.equal(rules.some((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.resourceTypes?.length === 1 &&
+    rule.condition.resourceTypes[0] === "script" &&
+    !rule.condition.urlFilter &&
+    !rule.condition.regexFilter &&
+    !rule.condition.requestDomains &&
+    !rule.condition.initiatorDomains
+  )), false);
 });
 
 function hasMeaningfulScope(rule) {

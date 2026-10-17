@@ -1,4 +1,4 @@
-export const STATIC_RULESET_IDS = ["meowpn_blocklist"];
+export const STATIC_RULESET_IDS = ["meowblocker_blocklist"];
 export const OWNED_RULE_ID_START = 1000000;
 export const OWNED_RULE_ID_END = 1300000;
 export const WHITELIST_RESOURCE_TYPES = [

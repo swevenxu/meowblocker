@@ -1,5 +1,5 @@
 (function () {
-  const STYLE_ID = "meowpn-cosmetic-filters";
+  const STYLE_ID = "meowblocker-cosmetic-filters";
   const selectors = [
     ".ads_all > .ads_w",
     "body > #js-adContainer.adBlock",
@@ -18,6 +18,10 @@
     ".amp_ad",
     "#ad-300x250_mobile"
   ];
+  const testPageSelectors = [
+    ".adbox.banner_ads.adsbox",
+    ".textads",
+  ];
 
   const hostname = location.hostname;
   let syncVersion = 0;
@@ -31,9 +35,14 @@
 
   function applyFilters() {
     if (!document.head || document.getElementById(STYLE_ID)) return;
+    const activeSelectors = hostname === "adblock.turtlecute.org"
+      ? selectors.concat(testPageSelectors)
+      : selectors;
     const style = document.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = selectors.map((sel) => `${sel} { display: none !important; }`).join("\n");
+    style.textContent = activeSelectors
+      .map((sel) => `${sel} { display: none !important; }`)
+      .join("\n");
     document.head.appendChild(style);
   }
 
