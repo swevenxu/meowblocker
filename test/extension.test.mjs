@@ -96,6 +96,32 @@ test("popup removes the matching parent-domain whitelist entry from subdomains",
   assert.match(source, /matchingHost !== null && matchingHost !== undefined/);
 });
 
+test("reject unscoped global third-party blocking rules", () => {
+  const rules = JSON.parse(read("rules.json"));
+  rules.forEach((rule) => {
+    if (
+      rule.action.type === "block" &&
+      rule.condition?.domainType === "thirdParty" &&
+      !hasMeaningfulScope(rule)
+    ) {
+      assert.fail(
+        `Rule ${rule.id} blocks third-party requests without meaningful positive scope.`
+      );
+    }
+  });
+});
+
+function hasMeaningfulScope(rule) {
+  const condition = rule.condition;
+  return Boolean(
+    condition.urlFilter ||
+    condition.requestDomains ||
+    condition.resourceTypes ||
+      // Negative exclusions alone don't count as scope
+      condition.excludedInitiatorDomains === undefined
+  );
+}
+
 test("all manifest rule resources exist and static rule ids are unique", () => {
   const manifest = JSON.parse(read("manifest.json"));
   const ids = new Set();
