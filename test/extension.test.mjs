@@ -111,14 +111,84 @@ test("reject unscoped global third-party blocking rules", () => {
   });
 });
 
+test("reject third-party blocks scoped only by excluded initiators", () => {
+  assert.equal(hasMeaningfulScope({
+    id: 987654,
+    action: { type: "block" },
+    condition: { domainType: "thirdParty" },
+  }), false);
+  assert.equal(hasMeaningfulScope({
+    id: 987655,
+    action: { type: "block" },
+    condition: {
+      domainType: "thirdParty",
+      excludedInitiatorDomains: ["example.com"],
+    },
+  }), false);
+  assert.equal(hasMeaningfulScope({
+    id: 987656,
+    action: { type: "block" },
+    condition: {
+      domainType: "thirdParty",
+      requestDomains: ["ads.example"],
+    },
+  }), true);
+});
+
+test("player compatibility rules do not block whole player services", () => {
+  const rules = JSON.parse(read("rules.json"));
+  const rule2 = rules.find((rule) => rule.id === 2);
+  const blockedPlayerDomains = [
+    "cdn.ex.co",
+    "embed.ex.co",
+    "player.avplayer.com",
+    "player.ex.co",
+    "player.sendtonews.com",
+    "slickstream.com",
+  ];
+  assert.ok(rule2);
+  assert.equal(
+    blockedPlayerDomains.some((domain) => rule2.condition.requestDomains.includes(domain)),
+    false
+  );
+  assert.equal(rules.some((rule) => [19, 46, 117].includes(rule.id)), false);
+  assert.deepEqual(rules.find((rule) => rule.id === 13452), {
+    id: 13452,
+    priority: 40,
+    action: { type: "block" },
+    condition: {
+      initiatorDomains: ["kotaku.com"],
+      requestDomains: ["imasdk.googleapis.com"],
+      resourceTypes: ["sub_frame"],
+    },
+  });
+});
+
+test("upload exceptions remain narrow and higher priority than ad filters", () => {
+  const rules = JSON.parse(read("rules.json"));
+  for (const [id, domain, resourceTypes] of [
+    [20002, "chatgpt.com", ["xmlhttprequest"]],
+    [20003, "files.oaiusercontent.com", ["xmlhttprequest", "image"]],
+  ]) {
+    const rule = rules.find((candidate) => candidate.id === id);
+    assert.ok(rule);
+    assert.equal(rule.priority, 30);
+    assert.deepEqual(rule.action, { type: "allow" });
+    assert.deepEqual(rule.condition, {
+      requestDomains: [domain],
+      resourceTypes,
+    });
+  }
+});
+
 function hasMeaningfulScope(rule) {
   const condition = rule.condition;
   return Boolean(
     condition.urlFilter ||
-    condition.requestDomains ||
-    condition.resourceTypes ||
-      // Negative exclusions alone don't count as scope
-      condition.excludedInitiatorDomains === undefined
+    condition.regexFilter ||
+    condition.requestDomains?.length ||
+    condition.initiatorDomains?.length ||
+    condition.resourceTypes?.length
   );
 }
 
