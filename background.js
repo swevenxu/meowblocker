@@ -1,8 +1,10 @@
 import {
   buildWhitelistRules,
   getRulesetUpdate,
+  getDynamicRulesUpdate,
   isOwnedRule,
   sanitizeWhitelist,
+  STATIC_RULESET_IDS,
 } from "./background-logic.js";
 
 async function getState() {
@@ -16,7 +18,7 @@ async function getState() {
   };
 }
 
-let syncQueue = Promise.resolve();
+let syncPromise = null;
 
 function safeErrorMessage(err) {
   const message = err instanceof Error ? err.message : "Unable to synchronize blocking rules";
@@ -24,23 +26,33 @@ function safeErrorMessage(err) {
 }
 
 function queueSync() {
-  syncQueue = syncQueue.then(syncRules, syncRules);
-  return syncQueue;
+  if (syncPromise) return syncPromise;
+  syncPromise = syncRules().finally(() => {
+    syncPromise = null;
+  });
+  return syncPromise;
 }
 
 async function syncRules() {
   try {
     const { enabled, whitelist, ownedDynamicRuleIds } = await getState();
-    await chrome.declarativeNetRequest.updateEnabledRulesets(getRulesetUpdate(enabled));
+    const enabledRulesets = await chrome.declarativeNetRequest.getEnabledRulesets();
+    const rulesetEnabled = enabledRulesets.some(({ id }) => STATIC_RULESET_IDS.includes(id));
+    if (rulesetEnabled !== enabled) {
+      await chrome.declarativeNetRequest.updateEnabledRulesets(getRulesetUpdate(enabled));
+    }
 
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
-    const ownedRules = existing.filter((rule) => isOwnedRule(rule, ownedDynamicRuleIds));
     const addRules = enabled ? buildWhitelistRules(whitelist) : [];
 
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: ownedRules.map((rule) => rule.id),
+    const update = getDynamicRulesUpdate(
+      existing,
       addRules,
-    });
+      (rule) => isOwnedRule(rule, ownedDynamicRuleIds)
+    );
+    if (update.removeRuleIds.length || update.addRules.length) {
+      await chrome.declarativeNetRequest.updateDynamicRules(update);
+    }
     const status = { ok: true, updatedAt: Date.now() };
     await chrome.storage.local.set({
       ownedDynamicRuleIds: addRules.map((rule) => rule.id),

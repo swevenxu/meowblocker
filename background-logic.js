@@ -58,6 +58,27 @@ export function buildWhitelistRules(whitelist) {
   });
 }
 
+function rulesEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function getDynamicRulesUpdate(existingRules, desiredRules, isOwned) {
+  const ownedRules = existingRules
+    .filter((rule) => isOwned(rule))
+    .sort((left, right) => left.id - right.id);
+  const sortedDesiredRules = [...desiredRules].sort((left, right) => left.id - right.id);
+  if (
+    ownedRules.length === sortedDesiredRules.length &&
+    ownedRules.every((rule, index) => rulesEqual(rule, sortedDesiredRules[index]))
+  ) {
+    return { removeRuleIds: [], addRules: [] };
+  }
+  return {
+    removeRuleIds: ownedRules.map((rule) => rule.id),
+    addRules: desiredRules,
+  };
+}
+
 export function sanitizeWhitelist(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map(normalizeHostname).filter(Boolean))];
@@ -82,12 +103,26 @@ export function isOwnedRule(rule, storedIds = []) {
       && resourceTypes[0] === "main_frame";
     return isLegacyResourceRule || isLegacyMainFrameRule;
   }
-  return rule.id >= OWNED_RULE_ID_START
-    && rule.id < OWNED_RULE_ID_END
-    && (rule.action?.type === "allow" || rule.action?.type === "allowAllRequests")
-    && Array.isArray(rule.condition?.initiatorDomains)
-    && rule.condition.initiatorDomains.length === 1
-    && Array.isArray(rule.condition?.resourceTypes)
-    && rule.condition.resourceTypes.length === 1
-    && rule.condition.resourceTypes[0] === "sub_frame";
+  if (rule.id < OWNED_RULE_ID_START || rule.id >= OWNED_RULE_ID_END) return false;
+  const condition = rule.condition;
+  const resourceTypes = condition?.resourceTypes;
+  const isCurrentResourceRule = rule.action?.type === "allow"
+    && Array.isArray(condition?.initiatorDomains)
+    && condition.initiatorDomains.length === 1
+    && Array.isArray(resourceTypes)
+    && resourceTypes.length === WHITELIST_RESOURCE_TYPES.length
+    && WHITELIST_RESOURCE_TYPES.every((type) => resourceTypes.includes(type));
+  const isCurrentMainFrameRule = rule.action?.type === "allow"
+    && Array.isArray(condition?.requestDomains)
+    && condition.requestDomains.length === 1
+    && Array.isArray(resourceTypes)
+    && resourceTypes.length === 1
+    && resourceTypes[0] === "main_frame";
+  const isCurrentSubFrameRule = rule.action?.type === "allowAllRequests"
+    && Array.isArray(condition?.initiatorDomains)
+    && condition.initiatorDomains.length === 1
+    && Array.isArray(resourceTypes)
+    && resourceTypes.length === 1
+    && resourceTypes[0] === "sub_frame";
+  return isCurrentResourceRule || isCurrentMainFrameRule || isCurrentSubFrameRule;
 }

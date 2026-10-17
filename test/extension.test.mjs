@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   OWNED_RULE_ID_START,
   buildWhitelistRules,
+  getDynamicRulesUpdate,
   getRulesetUpdate,
   isOwnedRule,
   isWhitelisted,
@@ -49,6 +50,48 @@ test("whitelist values are normalized and deduplicated", () => {
   assert.deepEqual(sanitizeWhitelist([" Example.COM ", "example.com", "bad value"]), ["example.com"]);
 });
 
+test("unchanged dynamic whitelist rules do not trigger an update", () => {
+  const desired = buildWhitelistRules(["example.com"]);
+  assert.deepEqual(getDynamicRulesUpdate(desired, desired, () => true), {
+    removeRuleIds: [],
+    addRules: [],
+  });
+});
+
+test("dynamic whitelist updates recover stale or missing rules", () => {
+  const desired = buildWhitelistRules(["example.com"]);
+  const stale = buildWhitelistRules(["stale.example"]);
+  const update = getDynamicRulesUpdate(stale, desired, () => true);
+  assert.deepEqual(update.removeRuleIds, stale.map((rule) => rule.id));
+  assert.deepEqual(update.addRules, desired);
+  assert.deepEqual(
+    getDynamicRulesUpdate([], desired, () => true),
+    { removeRuleIds: [], addRules: desired }
+  );
+});
+
+test("background synchronization coalesces requests and checks state before updating", () => {
+  const source = read("background.js");
+  assert.match(source, /if \(syncPromise\) return syncPromise/);
+  assert.match(source, /getEnabledRulesets\(\)/);
+  assert.match(source, /getDynamicRulesUpdate\(/);
+  assert.match(source, /if \(update\.removeRuleIds\.length \|\| update\.addRules\.length\)/);
+});
+
+test("unchanged-rule comparison leaves unrelated dynamic rules untouched", () => {
+  const desired = buildWhitelistRules(["example.com"]);
+  const unrelated = {
+    id: 900000,
+    priority: 1,
+    action: { type: "block" },
+    condition: { urlFilter: "||example.invalid" },
+  };
+  assert.deepEqual(
+    getDynamicRulesUpdate([unrelated, ...desired], desired, isOwnedRule),
+    { removeRuleIds: [], addRules: [] }
+  );
+});
+
 test("legacy and current whitelist rules are identifiable without claiming arbitrary rules", () => {
   const [legacy] = buildWhitelistRules(["example.com"]);
   assert.equal(isOwnedRule({
@@ -71,6 +114,9 @@ test("legacy and current whitelist rules are identifiable without claiming arbit
     },
   }, []), true);
   assert.equal(isOwnedRule(legacy, [legacy.id]), true);
+  assert.equal(isOwnedRule(buildWhitelistRules(["example.com"])[0]), true);
+  assert.equal(isOwnedRule(buildWhitelistRules(["example.com"])[1]), true);
+  assert.equal(isOwnedRule(buildWhitelistRules(["example.com"])[2]), true);
   assert.equal(isOwnedRule({
     ...legacy,
     id: 14,
