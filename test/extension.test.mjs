@@ -150,6 +150,9 @@ test("YouTube handling is isolated to YouTube hosts and uses scoped selectors", 
   assert.match(source, /#movie_player/);
   assert.match(source, /playerDiscoveryObserver/);
   assert.match(source, /playerDiscoveryObserver\.disconnect/);
+  assert.match(source, /playerContainerObserver/);
+  assert.match(source, /observedPlayer/);
+  assert.match(source, /document\.querySelector\("#movie_player"\) !== observedPlayer/);
   assert.match(source, /childList: true, subtree: true/);
   assert.match(source, /yt-navigate-finish/);
   assert.doesNotMatch(source, /setInterval|setTimeout/);

@@ -27,6 +27,8 @@
 
   let observer = null;
   let playerDiscoveryObserver = null;
+  let playerContainerObserver = null;
+  let observedPlayer = null;
   let syncVersion = 0;
   let skipQueued = false;
 
@@ -81,8 +83,18 @@
       playerDiscoveryObserver.observe(app, { childList: true, subtree: true });
       return;
     }
+    observedPlayer = player;
     observer = new MutationObserver(queueSkipButtonCheck);
     observer.observe(player, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    const container = player.parentElement;
+    if (container) {
+      playerContainerObserver = new MutationObserver(() => {
+        if (document.querySelector("#movie_player") !== observedPlayer) {
+          restartPlayerObserver();
+        }
+      });
+      playerContainerObserver.observe(container, { childList: true });
+    }
     queueSkipButtonCheck();
   }
 
@@ -91,6 +103,9 @@
     observer = null;
     playerDiscoveryObserver?.disconnect();
     playerDiscoveryObserver = null;
+    playerContainerObserver?.disconnect();
+    playerContainerObserver = null;
+    observedPlayer = null;
     startPlayerObserver();
   }
 
@@ -110,6 +125,9 @@
       observer = null;
       playerDiscoveryObserver?.disconnect();
       playerDiscoveryObserver = null;
+      playerContainerObserver?.disconnect();
+      playerContainerObserver = null;
+      observedPlayer = null;
     }
   }
 
