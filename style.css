@@ -46,6 +46,10 @@ body {
   letter-spacing: 0.02em;
 }
 
+.brand-accent {
+  color: var(--on);
+}
+
 .stage {
   flex: 1;
   display: flex;
@@ -67,11 +71,23 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+  transition:
+    color 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.45s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.power svg {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .power:hover {
   border-color: #3a3a44;
+}
+
+.power:active {
+  transform: scale(0.94);
 }
 
 .power:disabled {
@@ -84,9 +100,18 @@ body[data-state="on"] .power {
   box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.08);
 }
 
+body[data-state="on"] .power svg {
+  transform: rotate(180deg);
+}
+
 body[data-state="connecting"] .power {
   color: var(--accent);
   border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(124, 108, 240, 0.08);
+}
+
+body[data-state="connecting"] .power svg {
+  transform: rotate(90deg);
 }
 
 body[data-state="on"] .dot {
@@ -164,4 +189,32 @@ body[data-state="connecting"] .detail::after {
 .foot a {
   color: var(--text-dim);
   text-decoration: underline;
+}
+
+.github-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 2px;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.github-link svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.github-link:hover {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .power,
+  .power svg,
+  .github-link {
+    transition-duration: 0.01ms;
+  }
 }
