@@ -148,6 +148,9 @@ test("YouTube handling is isolated to YouTube hosts and uses scoped selectors", 
   assert.match(source, /hostname\.endsWith/);
   assert.match(source, /meowblocker-youtube-cosmetic-filters/);
   assert.match(source, /#movie_player/);
+  assert.match(source, /playerDiscoveryObserver/);
+  assert.match(source, /playerDiscoveryObserver\.disconnect/);
+  assert.match(source, /childList: true, subtree: true/);
   assert.match(source, /yt-navigate-finish/);
   assert.doesNotMatch(source, /setInterval|setTimeout/);
   assert.doesNotMatch(source, /fetch\s*\(|XMLHttpRequest|response/i);
@@ -251,6 +254,14 @@ test("YouTube network rules are narrow and preserve media resources", () => {
   const youtubeRules = rules.filter((rule) => (
     rule.condition?.initiatorDomains?.includes("youtube.com")
   ));
+  for (const id of [13533, 13709]) {
+    const rule = rules.find((candidate) => candidate.id === id);
+    assert.ok(rule);
+    assert.deepEqual(rule.condition.initiatorDomains, [
+      "youtube.com",
+      "youtube-nocookie.com",
+    ]);
+  }
   assert.ok(youtubeRules.some((rule) => rule.condition.urlFilter?.includes("initplayback")));
   assert.ok(youtubeRules.some((rule) => (
     rule.condition.resourceTypes?.includes("media") &&

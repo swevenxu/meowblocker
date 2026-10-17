@@ -26,6 +26,7 @@
   }
 
   let observer = null;
+  let playerDiscoveryObserver = null;
   let syncVersion = 0;
   let skipQueued = false;
 
@@ -68,7 +69,18 @@
   function startPlayerObserver() {
     if (observer || !document.body) return;
     const player = document.querySelector("#movie_player");
-    if (!player) return;
+    if (!player) {
+      if (playerDiscoveryObserver) return;
+      const app = document.querySelector("ytd-app") || document.body;
+      playerDiscoveryObserver = new MutationObserver(() => {
+        if (!document.querySelector("#movie_player")) return;
+        playerDiscoveryObserver.disconnect();
+        playerDiscoveryObserver = null;
+        startPlayerObserver();
+      });
+      playerDiscoveryObserver.observe(app, { childList: true, subtree: true });
+      return;
+    }
     observer = new MutationObserver(queueSkipButtonCheck);
     observer.observe(player, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     queueSkipButtonCheck();
@@ -77,6 +89,8 @@
   function restartPlayerObserver() {
     observer?.disconnect();
     observer = null;
+    playerDiscoveryObserver?.disconnect();
+    playerDiscoveryObserver = null;
     startPlayerObserver();
   }
 
@@ -94,6 +108,8 @@
       removeCosmeticFilters();
       observer?.disconnect();
       observer = null;
+      playerDiscoveryObserver?.disconnect();
+      playerDiscoveryObserver = null;
     }
   }
 
