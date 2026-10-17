@@ -133,6 +133,33 @@ test("cosmetic filtering is scoped and idempotent", () => {
   assert.doesNotMatch(source, /\.ez-video-wrap/);
 });
 
+test("YouTube handling is isolated to YouTube hosts and uses scoped selectors", () => {
+  const manifest = JSON.parse(read("manifest.json"));
+  const youtubeScript = manifest.content_scripts.find((entry) => entry.js.includes("youtube.js"));
+  assert.ok(youtubeScript);
+  assert.deepEqual(youtubeScript.matches, [
+    "*://youtube.com/*",
+    "*://*.youtube.com/*",
+    "*://youtube-nocookie.com/*",
+    "*://*.youtube-nocookie.com/*",
+  ]);
+  const source = read("youtube.js");
+  assert.match(source, /YOUTUBE_HOSTS/);
+  assert.match(source, /hostname\.endsWith/);
+  assert.match(source, /meowblocker-youtube-cosmetic-filters/);
+  assert.match(source, /#movie_player/);
+  assert.match(source, /yt-navigate-finish/);
+  assert.doesNotMatch(source, /setInterval|setTimeout/);
+  assert.doesNotMatch(source, /fetch\s*\(|XMLHttpRequest|response/i);
+  for (const selector of [
+    "ytd-display-ad-renderer",
+    "ytd-promoted-sparkles-web-renderer",
+    ".ytp-ad-overlay-container",
+  ]) {
+    assert.match(source, new RegExp(selector.replace(/[.-]/g, "\\$&")));
+  }
+});
+
 test("test-page cosmetic selectors are scoped and cover dynamic elements", () => {
   const source = read("content.js");
   assert.match(source, /"\.adbox\.banner_ads\.adsbox"/);
@@ -217,6 +244,31 @@ test("player compatibility rules do not block whole player services", () => {
       resourceTypes: ["sub_frame"],
     },
   });
+});
+
+test("YouTube network rules are narrow and preserve media resources", () => {
+  const rules = JSON.parse(read("rules.json"));
+  const youtubeRules = rules.filter((rule) => (
+    rule.condition?.initiatorDomains?.includes("youtube.com")
+  ));
+  assert.ok(youtubeRules.some((rule) => rule.condition.urlFilter?.includes("initplayback")));
+  assert.ok(youtubeRules.some((rule) => (
+    rule.condition.resourceTypes?.includes("media") &&
+    rule.condition.urlFilter === "_ad_"
+  )));
+  assert.equal(rules.some((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.requestDomains?.includes("googlevideo.com") &&
+    (!rule.condition.resourceTypes || rule.condition.resourceTypes.includes("media")) &&
+    !rule.condition.urlFilter
+  )), false);
+  assert.equal(rules.some((rule) => (
+    rule.action?.type === "block" &&
+    rule.condition?.resourceTypes?.includes("media") &&
+    !rule.condition.urlFilter &&
+    !rule.condition.requestDomains?.length &&
+    !rule.condition.initiatorDomains?.length
+  )), false);
 });
 
 test("upload exceptions remain narrow and higher priority than ad filters", () => {
